@@ -33,6 +33,7 @@ function App() {
           }}
         />
         <StoreActionBridge />
+        <PreferencesBridge theme={theme} onResolvedTheme={setTheme} />
         <div className="layout">
           <Sidebar />
           <main className="content">
@@ -57,6 +58,31 @@ function StoreActionBridge() {
       delete window.__notesCreateNew;
     };
   }, [actions]);
+
+  return null;
+}
+
+function PreferencesBridge({ theme, onResolvedTheme }) {
+  // Sync theme to/from persisted store preferences
+  const {
+    state: { preferences },
+    actions,
+  } = useNotesStore();
+
+  // On mount or when store preferences change, if store has theme, use it
+  useEffect(() => {
+    if (preferences && preferences.theme && preferences.theme !== theme) {
+      onResolvedTheme(preferences.theme);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferences?.theme]);
+
+  // When theme changes locally, persist into store
+  useEffect(() => {
+    if (theme) {
+      actions.setPreference('theme', theme);
+    }
+  }, [theme, actions]);
 
   return null;
 }
@@ -86,13 +112,17 @@ function MainView() {
     })
     .sort((a, b) => {
       const { by, order } = sort;
-      const vA = a[by] ?? '';
-      const vB = b[by] ?? '';
+      const vA = a?.[by];
+      const vB = b?.[by];
       let cmp = 0;
       if (typeof vA === 'string' && typeof vB === 'string') {
         cmp = vA.localeCompare(vB);
+      } else if (typeof vA === 'number' && typeof vB === 'number') {
+        cmp = vA - vB;
       } else {
-        cmp = vA === vB ? 0 : vA > vB ? 1 : -1;
+        const aVal = vA ?? '';
+        const bVal = vB ?? '';
+        cmp = aVal === bVal ? 0 : aVal > bVal ? 1 : -1;
       }
       return order === 'asc' ? cmp : -cmp;
     });

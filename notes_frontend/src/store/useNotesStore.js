@@ -7,8 +7,14 @@ const initialState = {
   notes: [], // {id, title, content, createdAt, updatedAt, pinned, archived, tags?: string[]}
   selectedId: null,
   query: '',
+  // Default sort: updatedAt desc
   sort: { by: 'updatedAt', order: 'desc' }, // by: createdAt|updatedAt|title, order: asc|desc
+  // Default filter: active (not archived), all (not only pinned)
   filter: { showArchived: false, showPinnedOnly: false },
+  // UI preferences persisted; theme is handled in App but saved here for centralization
+  preferences: {
+    theme: 'light',
+  },
 };
 
 // Actions
@@ -26,12 +32,20 @@ const ACTIONS = {
   IMPORT_NOTES: 'IMPORT_NOTES',
   EXPORT_NOTES: 'EXPORT_NOTES', // no-op in reducer, handled by selector/helper
   HYDRATE: 'HYDRATE',
+  SET_PREFERENCE: 'SET_PREFERENCE',
 };
 
 function reducer(state, action) {
   switch (action.type) {
     case ACTIONS.HYDRATE: {
-      return { ...state, ...(action.payload || {}) };
+      const incoming = action.payload || {};
+      return {
+        ...state,
+        ...incoming,
+        sort: { ...(state.sort || {}), ...(incoming.sort || {}) },
+        filter: { ...(state.filter || {}), ...(incoming.filter || {}) },
+        preferences: { ...(state.preferences || {}), ...(incoming.preferences || {}) },
+      };
     }
     case ACTIONS.CREATE: {
       const now = Date.now();
@@ -95,6 +109,11 @@ function reducer(state, action) {
     case ACTIONS.SET_FILTER: {
       const filter = { ...state.filter, ...(action.payload?.filter || {}) };
       return { ...state, filter };
+    }
+    case ACTIONS.SET_PREFERENCE: {
+      const { key, value } = action.payload || {};
+      const preferences = { ...(state.preferences || {}), [key]: value };
+      return { ...state, preferences };
     }
     case ACTIONS.IMPORT_NOTES: {
       const incoming = Array.isArray(action.payload?.notes) ? action.payload.notes : [];
@@ -178,6 +197,8 @@ export function NotesProvider({ children, initial }) {
         /** Return a serializable export of notes array. */
         return state.notes;
       },
+      // PUBLIC_INTERFACE
+      setPreference: (key, value) => dispatch({ type: ACTIONS.SET_PREFERENCE, payload: { key, value } }),
     }),
     [state]
   );
