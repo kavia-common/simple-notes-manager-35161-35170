@@ -4,6 +4,9 @@ import { NotesProvider, useNotesStore } from './store/useNotesStore';
 import { applyTheme, getSystemPreferredTheme, THEMES } from './utils/theme';
 import TopNav from './components/Layout/TopNav';
 import Sidebar from './components/Layout/Sidebar';
+import NoteList from './components/NoteList';
+import NoteEditor from './components/NoteEditor';
+import EmptyState from './components/EmptyState';
 
 // PUBLIC_INTERFACE
 function App() {
@@ -26,11 +29,10 @@ function App() {
           theme={theme}
           onToggleTheme={toggleTheme}
           onNewNote={() => {
-            // leverage store inside a bridge component
-            // We render a helper to access actions
+            // optional direct handler; fallback bridge is also provided
           }}
         />
-        <StoreActionBridge onNewNote />
+        <StoreActionBridge />
         <div className="layout">
           <Sidebar />
           <main className="content">
@@ -44,12 +46,11 @@ function App() {
 
 /**
  * Helper component to bridge actions to TopNav without prop-drilling actions.
- * It listens to a prop flag and exposes a global-safe callback for TopNav's New Note.
+ * It exposes a global-safe callback for TopNav's New Note.
  */
-function StoreActionBridge({ onNewNote }) {
+function StoreActionBridge() {
   const { actions } = useNotesStore();
 
-  // Expose a handler on window for TopNav to call safely
   useEffect(() => {
     window.__notesCreateNew = () => actions.createNote({ title: 'New note', content: '' });
     return () => {
@@ -68,8 +69,14 @@ function MainView() {
 
   const filtered = notes
     .filter((n) => {
-      if (filter.showArchived && !n.archived) return false;
-      if (filter.showPinnedOnly && !n.pinned) return false;
+      // If 'showArchived' is enabled, only show archived notes
+      if (filter.showArchived) return n.archived;
+      // If 'showPinnedOnly' is enabled, only show pinned and not archived
+      if (filter.showPinnedOnly) return n.pinned && !n.archived;
+      // Otherwise show active notes (not archived)
+      if (n.archived) return false;
+
+      // Apply search query
       if (!query) return true;
       const q = query.toLowerCase();
       return (
@@ -89,6 +96,8 @@ function MainView() {
       }
       return order === 'asc' ? cmp : -cmp;
     });
+
+  const selected = filtered.find((n) => n.id === selectedId) || null;
 
   return (
     <div className="content-inner">
@@ -129,11 +138,9 @@ function MainView() {
                     actions.importNotes(json);
                   } else if (Array.isArray(json?.notes)) {
                     actions.importNotes(json.notes);
-                  } else {
-                    // ignore
                   }
                 } catch {
-                  // ignore
+                  // ignore invalid files
                 } finally {
                   e.target.value = '';
                 }
@@ -143,65 +150,19 @@ function MainView() {
         </div>
       </div>
 
-      <div className="note-list">
-        {filtered.length === 0 ? (
-          <div className="empty">
-            <div className="empty-illustration">🌊</div>
-            <div className="empty-title">No notes yet</div>
-            <div className="empty-subtitle">Create your first note to get started.</div>
-          </div>
-        ) : (
-          filtered.map((n) => (
-            <div
-              key={n.id}
-              className={`note-card ${selectedId === n.id ? 'active' : ''}`}
-              onClick={() => actions.selectNote(n.id)}
-            >
-              <div className="note-card-header">
-                <div className="note-card-title">{n.title || 'Untitled'}</div>
-                <div className="note-card-actions">
-                  <button
-                    className="icon-btn"
-                    title={n.pinned ? 'Unpin' : 'Pin'}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      actions.togglePin(n.id);
-                    }}
-                  >
-                    {n.pinned ? '📌' : '📍'}
-                  </button>
-                  <button
-                    className="icon-btn"
-                    title={n.archived ? 'Unarchive' : 'Archive'}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      actions.toggleArchive(n.id);
-                    }}
-                  >
-                    {n.archived ? '🗂️' : '📦'}
-                  </button>
-                  <button
-                    className="icon-btn danger"
-                    title="Delete"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      actions.deleteNote(n.id);
-                    }}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-              <div className="note-card-content">
-                {n.content ? n.content.slice(0, 140) : 'No content yet.'}
-              </div>
-              <div className="note-card-meta">
-                <span>{new Date(n.updatedAt).toLocaleString()}</span>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon="🌊"
+          title="No notes yet"
+          subtitle="Create your first note to get started."
+        />
+      ) : (
+        <>
+          <NoteList notes={filtered} />
+          <div style={{ marginTop: 16 }} />
+          <NoteEditor key={selected ? selected.id : 'no-selection'} />
+        </>
+      )}
     </div>
   );
 }
