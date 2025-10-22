@@ -1,82 +1,138 @@
-# Lightweight React Template for KAVIA
+# Notes Frontend (Simple Notes)
 
-This project provides a minimal React template with a clean, modern UI and minimal dependencies.
+This document describes the features and usage of the Simple Notes frontend, including how data is stored locally, how the Ocean Professional theme is applied, available keyboard shortcuts, and how to run, test, export, and import notes.
+
+## Overview
+
+The app is a single-page React application for creating, editing, and managing notes. It presents a top navigation bar with search and quick actions, a sidebar for filters and sorting, and a main content area that lists notes and displays an editor for the selected note. The UI follows a clean, modern aesthetic based on the Ocean Professional theme.
 
 ## Features
 
-- **Lightweight**: No heavy UI frameworks - uses only vanilla CSS and React
-- **Modern UI**: Clean, responsive design with KAVIA brand styling
-- **Fast**: Minimal dependencies for quick loading times
-- **Simple**: Easy to understand and modify
+- Create, edit, pin, archive, and delete notes with an inline editor.
+- Debounced autosave in the editor to avoid excessive updates (400 ms delay).
+- Persistent local storage with versioned keys to keep notes across page reloads.
+- Search by title or content directly from the top navigation.
+- Filter views for All, Pinned, and Archived notes using sidebar chips.
+- Sorting by Updated, Created, or Title in ascending/descending order.
+- Light/Dark mode toggle with preference persistence.
+- Import from and Export to JSON directly from the toolbar.
+- Responsive layout with collapsible filters on small screens.
 
-## Getting Started
+## Local Persistence
 
-In the project directory, you can run:
+Data is stored in the browser’s localStorage using a versioned key. The provider hydrates from storage on startup and saves after any state change.
 
-### `npm start`
+- Storage key: simple-notes:notes:v1 (from src/store/storage.js)
+- Load and save:
+  - Hydration: src/store/useNotesStore.js calls loadFromStorage() once at mount.
+  - Persistence: A useEffect saves the entire store state to localStorage on every state change via saveToStorage().
+- Safety: JSON parsing/stringifying is wrapped with fallbacks to prevent runtime errors.
 
-Runs the app in development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Developers can reference:
+- src/store/storage.js for getStorageKey, loadFromStorage, saveToStorage.
+- src/store/useNotesStore.js for hydration and persistence effects.
 
-### `npm test`
+## Ocean Professional Theme
 
-Launches the test runner in interactive watch mode.
+The UI theme is defined using CSS custom properties and a data-theme attribute on the document root. Light and dark variants are supported.
 
-### `npm run build`
+- Theme tokens are declared in src/App.css under the “Ocean Professional Theme Tokens” section. Primary is #2563EB (blue-600), secondary is #F59E0B (amber-500), error is #EF4444.
+- Light mode tokens are defined under :root and dark mode overrides under [data-theme="dark"].
+- The app applies the theme using src/utils/theme.js:
+  - getSystemPreferredTheme() reads the OS color scheme preference.
+  - applyTheme(theme) sets document.documentElement’s data-theme attribute.
+- The top navigation offers a theme toggle button, and the preference is persisted in the notes store (src/store/useNotesStore.js via actions.setPreference('theme', theme)) so your choice is remembered.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Keyboard Shortcuts
 
-## Customization
+- New note: Press Enter on the “+ New Note” button if focused. The app does not define global keyboard handlers; standard browser keyboard navigation and form input shortcuts apply.
+- Search: Focus the search field and type to filter notes by title or content in real time.
+- Editor: Use standard text input shortcuts (Ctrl/Cmd+Z to undo, Ctrl/Cmd+A to select all, etc.). Edits autosave after 400 ms of inactivity.
 
-### Colors
+Note: There are no app-wide registered hotkeys beyond typical form controls.
 
-The main brand colors are defined as CSS variables in `src/App.css`:
+## How to Run
 
-```css
-:root {
-  --kavia-orange: #E87A41;
-  --kavia-dark: #1A1A1A;
-  --text-color: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --border-color: rgba(255, 255, 255, 0.1);
-}
-```
+- Development server:
+  - npm start
+  - Opens http://localhost:3000 and hot-reloads on changes.
 
-### Components
+- Production build:
+  - npm run build
+  - Outputs an optimized build to the build/ directory.
 
-This template uses pure HTML/CSS components instead of a UI framework. You can find component styles in `src/App.css`. 
+Requirements:
+- Node.js compatible with react-scripts 5.
+- The app depends only on react, react-dom, and react-scripts.
 
-Common components include:
-- Buttons (`.btn`, `.btn-large`)
-- Container (`.container`)
-- Navigation (`.navbar`)
-- Typography (`.title`, `.subtitle`, `.description`)
+## How to Test
 
-## Learn More
+Unit tests cover core UI behaviors including new note creation, editor autosave, pin toggling, and localStorage interactions.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+- Run in CI/non-interactive:
+  - CI=true npm test -- --watchAll=false
 
-### Code Splitting
+- Run interactively:
+  - npm test
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+Tests are implemented with React Testing Library and jest-dom. See:
+- src/App.test.js for end-to-end-like UI behavior tests.
+- src/setupTests.js which imports @testing-library/jest-dom.
+- TESTING_README.md for a quick summary of coverage and commands.
 
-### Analyzing the Bundle Size
+## Using the App
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### Creating a Note
+Click “+ New Note” in the top navigation. A note is created with the default title “New note,” selected automatically, and the editor is shown.
 
-### Making a Progressive Web App
+### Editing a Note
+Use the Title input and Content textarea. Changes are debounced and saved to the store after 400 ms of inactivity. The note list title and snippet update after the save occurs.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### Pinning, Archiving, Deleting
+- From the editor toolbar, use Pin/Unpin, Archive/Unarchive, and Delete actions.
+- From the note card, use the icon buttons to Pin/Unpin, Archive/Unarchive, or Delete without opening the editor.
 
-### Advanced Configuration
+### Filtering and Sorting
+Open the sidebar filters to switch among All, Pinned, and Archived. Use the “Sort by” select to change default sorting (Updated, Created, Title; both ascending and descending).
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+### Search
+Type in the top navigation search box to filter notes by title or content. Filters and search are combined with sorting to control the list.
 
-### Deployment
+## Export and Import
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+The toolbar includes “Export” and “Import” for JSON-based backup/restore.
 
-### `npm run build` fails to minify
+- Export:
+  - Click Export to download notes-export.json containing the currently visible notes list (after filters and search). This is a simple array of note objects with fields like id, title, content, createdAt, updatedAt, pinned, archived, and optional tags.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- Import:
+  - Click Import and choose a JSON file. The app accepts:
+    - A bare array of notes: [ { ...note }, ... ]
+    - An object with a notes property: { "notes": [ { ...note }, ... ] }
+  - Imported notes are normalized and merged. Missing ids are generated; timestamps default to now if not present. Existing ids are overwritten by imported notes with the same id.
+
+Tip: To import a file previously exported, you can use it directly with no changes.
+
+## Project Structure
+
+- src/App.js: App shell, layout, theme application, export/import controls.
+- src/components/Layout/TopNav.js: Brand, search, New Note button, theme toggle.
+- src/components/Layout/Sidebar.js: Filters and sorting UI with responsive behavior.
+- src/components/NoteList.js: Note grid with card actions.
+- src/components/NoteEditor.js: Editor with debounced autosave and toolbar actions.
+- src/store/useNotesStore.js: Centralized state, reducer, actions, hydration, and persistence.
+- src/store/storage.js: Versioned localStorage helpers and safety wrappers.
+- src/utils/theme.js: Theme utilities (apply and detect).
+- src/App.css: Ocean Professional theme tokens and component styles.
+
+## Accessibility and Responsiveness
+
+- Inputs and buttons include accessible labels and roles where appropriate.
+- The sidebar becomes collapsible on small screens. The grid adapts note card columns to available width.
+
+## Troubleshooting
+
+- If you see no notes after a refresh, ensure localStorage is not blocked and that the browser’s privacy settings allow site data.
+- If theme does not switch, confirm document root has data-theme set and that CSS variables are applied; try toggling the theme button again.
+- If import fails silently, verify the JSON format is an array or an object with a notes property.
+
