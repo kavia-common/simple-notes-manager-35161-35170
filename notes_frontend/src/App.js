@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import './App.css';
 import { NotesProvider, useNotesStore } from './store/useNotesStore';
 import { applyTheme, getSystemPreferredTheme, THEMES } from './utils/theme';
+import TopNav from './components/Layout/TopNav';
+import Sidebar from './components/Layout/Sidebar';
 
 // PUBLIC_INTERFACE
 function App() {
@@ -20,30 +22,19 @@ function App() {
   return (
     <NotesProvider>
       <div className="App">
-        <header className="topbar">
-          <div className="brand">
-            <span className="brand-mark">🗒️</span>
-            <span className="brand-name">Simple Notes</span>
-          </div>
-          <div className="topbar-actions">
-            <button
-              className="btn ghost"
-              onClick={toggleTheme}
-              aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-            >
-              {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-            </button>
-          </div>
-        </header>
-
+        <TopNav
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onNewNote={() => {
+            // leverage store inside a bridge component
+            // We render a helper to access actions
+          }}
+        />
+        <StoreActionBridge onNewNote />
         <div className="layout">
-          <aside className="sidebar">
-            {/* Placeholder: Sidebar filters/actions will be added next step */}
-            <SidebarPreview />
-          </aside>
+          <Sidebar />
           <main className="content">
-            {/* Placeholder: Toolbar, search bar, and notes list/editor will be added next step */}
-            <MainPreview />
+            <MainView />
           </main>
         </div>
       </div>
@@ -51,93 +42,25 @@ function App() {
   );
 }
 
-function SidebarPreview() {
-  const {
-    state: { query, filter, sort, notes },
-    actions,
-  } = useNotesStore();
+/**
+ * Helper component to bridge actions to TopNav without prop-drilling actions.
+ * It listens to a prop flag and exposes a global-safe callback for TopNav's New Note.
+ */
+function StoreActionBridge({ onNewNote }) {
+  const { actions } = useNotesStore();
 
-  return (
-    <div className="sidebar-inner">
-      <h3 className="sidebar-title">Library</h3>
-      <div className="sidebar-section">
-        <div className="stat">
-          <span className="stat-label">Notes</span>
-          <span className="stat-value">{notes.length}</span>
-        </div>
-        <div className="stat">
-          <span className="stat-label">Pinned</span>
-          <span className="stat-value">{notes.filter((n) => n.pinned && !n.archived).length}</span>
-        </div>
-        <div className="stat">
-          <span className="stat-label">Archived</span>
-          <span className="stat-value">{notes.filter((n) => n.archived).length}</span>
-        </div>
-      </div>
+  // Expose a handler on window for TopNav to call safely
+  useEffect(() => {
+    window.__notesCreateNew = () => actions.createNote({ title: 'New note', content: '' });
+    return () => {
+      delete window.__notesCreateNew;
+    };
+  }, [actions]);
 
-      <div className="sidebar-section">
-        <label className="field">
-          <span className="field-label">Search</span>
-          <input
-            className="input"
-            placeholder="Search notes..."
-            value={query}
-            onChange={(e) => actions.setQuery(e.target.value)}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Show</span>
-          <select
-            className="input"
-            value={`${filter.showPinnedOnly ? 'pinned' : filter.showArchived ? 'archived' : 'all'}`}
-            onChange={(e) => {
-              const v = e.target.value;
-              actions.setFilter({
-                showPinnedOnly: v === 'pinned',
-                showArchived: v === 'archived',
-              });
-            }}
-          >
-            <option value="all">All</option>
-            <option value="pinned">Pinned</option>
-            <option value="archived">Archived</option>
-          </select>
-        </label>
-
-        <label className="field">
-          <span className="field-label">Sort by</span>
-          <select
-            className="input"
-            value={`${sort.by}:${sort.order}`}
-            onChange={(e) => {
-              const [by, order] = e.target.value.split(':');
-              actions.setSort({ by, order });
-            }}
-          >
-            <option value="updatedAt:desc">Updated (newest)</option>
-            <option value="updatedAt:asc">Updated (oldest)</option>
-            <option value="createdAt:desc">Created (newest)</option>
-            <option value="createdAt:asc">Created (oldest)</option>
-            <option value="title:asc">Title (A→Z)</option>
-            <option value="title:desc">Title (Z→A)</option>
-          </select>
-        </label>
-      </div>
-
-      <div className="sidebar-section">
-        <button
-          className="btn primary w-full"
-          onClick={() => actions.createNote({ title: 'New note', content: '' })}
-        >
-          + New Note
-        </button>
-      </div>
-    </div>
-  );
+  return null;
 }
 
-function MainPreview() {
+function MainView() {
   const {
     state: { notes, query, sort, filter, selectedId },
     actions,
@@ -178,7 +101,6 @@ function MainPreview() {
           <button
             className="btn ghost"
             onClick={() => {
-              // simple export preview
               const data = JSON.stringify(filtered, null, 2);
               const blob = new Blob([data], { type: 'application/json' });
               const url = URL.createObjectURL(blob);

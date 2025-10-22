@@ -9,6 +9,7 @@
 html, body {
   padding: 0;
   margin: 0;
+  height: 100%;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -18,6 +19,7 @@ html, body {
 
 #root {
   isolation: isolate;
+  height: 100%;
 }
 
 code {
